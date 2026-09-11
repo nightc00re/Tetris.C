@@ -1,71 +1,57 @@
 <p align="center">
-  <img src="docs/logo.png" width="600" alt="TETRIS.C Logo">
+  <img src="assets/logo.png" alt="TETRIS.C Logo" width="650">
 </p>
 
-# TETRIS.C: Manual Reverse Engineering & Native M1 Port
+# TETRIS.C
 
-This project details the manual reverse engineering work completed on the original *Tetris* ROM using Ghidra, culminating in a clean-room C port built natively for Apple Silicon (macOS)[cite: 2]. Rather than using an emulator or an automated decompilation script, this project studies the architecture of the 8-bit Sharp SM83 processor, looking at hardware quirks, memory mapping constraints, lookup tables, and VRAM blanking under the hood[cite: 2].
+This project details the manual reverse engineering work I completed using the Tetris ROM using ghidra, culminating into a clean C port on Apple silicon mac[cite: 1, 2]. Instead of using an emulator or a decomp script, I wanted to study the architecture of the Sharp SM83 processor, looking for hardware quirks, its memory mapping constraints, and other operations like lookup tables and Vram blanking that are occurring under the hood[cite: 1, 2].
 
----
-
-## Architecture & Reverse Engineering Findings
-
-### 1. ROM Entry Point & The Nintendo Logo (`0x0100`)
-The analysis began at hex address `0x0100`, deciphered as the true execution entry point of the ROM[cite: 2]. The internal boot ROM writes to address `0xFF50` to unmap itself, then jumps to `0x0100` once the boot sequence finishes[cite: 2]. The mandatory 48-byte Nintendo logo bitmap embedded in the cartridge header acted as an early anti-piracy and trademark protection measure[cite: 2].
+My findings pointed to a certain hex address 0x0100[cite: 1, 2]. Upon disassembling the program, I deciphered that this was the entry point of the ROM[cite: 1, 2]. Growing up I always remembered the iconic nintendo logo playing before each game[cite: 1, 2]. This was no accident, as the boot rom writes to address 0xFF50, then jumps over to 0x0100 as soon as the sequence finishes[cite: 1, 2]. It was a strict anti piracy or anti counterfeit measure to protect the Nintendo IP[cite: 1, 2]. 
 
 <p align="center">
-  <img src="docs/screenshots/01_rom_entry_0x0100.png" width="800" alt="ROM Entry Point">
-  <br>
-  <em>Figure 1: Cartridge entry point at 0x0100 showing the jump vector over the Nintendo logo bitmap.</em>
+  <img src="assets/01_rom_entry_0x0100.png" width="750" alt="ROM Entry Point 0x0100">
 </p>
 
-### 2. Power-On RAM Initialization Loops
-Sequential memory loops initialize SRAM, Work RAM (`0xC000`), VRAM (`0x8000`), and OAM (`0xFE00`)[cite: 2]. These loops flush out physical electrical noise left in static RAM during cold boot[cite: 2]. While modern operating systems handle this initialization automatically, bare-metal Game Boy cartridges are solely responsible for filtering out this noise[cite: 2].
+Another thing that I notices is the sequential memory loops[cite: 1, 2]. The hardware seems to be initializing SRAM, VRAM, and ORAM in this order[cite: 1, 2]. From my findings, it starts with the SRAM, then the WORK ram (0xC000), then the VRAM (0x8000), and OAM (0xFE00)[cite: 1, 2]. This is just purely electrical noise[cite: 1, 2]. Usually an operating system filters them out when the hardware is initializing, but the gameboy cartridge is solely responsible for carrying out this filtering[cite: 1, 2].
 
 <p align="center">
-  <img src="docs/screenshots/02_ram_clearing_pipeline.png" width="800" alt="RAM Initialization">
-  <br>
-  <em>Figure 2: Sequential memory-clearing loops zeroing VRAM, OAM, and HRAM.</em>
+  <img src="assets/02_ram_clearing_pipeline.png" width="750" alt="Sequential Memory Loops">
 </p>
 
-### 3. Hardware Constraints & VRAM Blanking
-Due to limitations of the Sharp SM83 processor and the PPU (Picture Processing Unit), writing to VRAM is heavily restricted[cite: 2]. If the screen draws pixels while the CPU modifies video memory, visual glitches and screen tearing occur[cite: 2]. To prevent this hardware conflict, the game executes a massive VRAM wipe during boot while the LCD is turned off[cite: 2]. While modern Apple Silicon features ultra-fast unified memory that bypasses these physical bus locks, understanding this constraint was vital for the reverse engineering process[cite: 2].
+Because of the limitations of the SHARP SM83 processor and the PPU unit of the gameboy, you could not write to the Vram whenever[cite: 1, 2]. If the screen is drawing pixels as the CPU fetches more instructions, the screen will v blank[cite: 1, 2]. This causes visual glitches such as screen tearing[cite: 1, 2]. Because of this hardware quirk, the game does a massive wipe during the boot while the LCD is turned off[cite: 1, 2]. On my m1 mac with its ultra fast unified memory, I didnt need to include this in the source code[cite: 1, 2]. But understanding why the GameBoy did this was a crucial part in my reverse engineering[cite: 1, 2].
 
-### 4. Playfield Matrix Grid (`0x1D20`)
-Starting at hardware address `0x1D20`, the game maps out the playfield into Work RAM as a linear byte array forming a $10 \times 20$ grid[cite: 2]. The routine initializes an inner counter (`LD B, 10` for the 10 cells per row) starting at address `0x1D29`, walking backward through memory to check each cell[cite: 2].
+Starting at the hardware address 0x1D20, the Gameboy maps out the playfield of blocks into the workram as a linear byte array consisting of a 10x20 grid[cite: 1, 2]. The routine starts at address 0x1d29, and the processor initializes an inner counter LD B, 10 (the 10 grid cells per row) and walks backwards through memory checking each cell[cite: 1, 2].
 
 <p align="center">
-  <img src="docs/screenshots/05_line_scan_matrix_loop.png" width="800" alt="Playfield Line Scan">
-  <br>
-  <em>Figure 3: Playfield matrix scan loop processing the 10 columns of each row.</em>
+  <img src="assets/5_line_scan_matrix_loop.png" width="750" alt="Playfield Grid Routine at 0x1D20">
 </p>
 
-### 5. Speculative State Validation (`0x1AC0`)
-Whenever a player inputs movement or rotation controls, the game does not alter the live game state immediately[cite: 2]. Instead, it evaluates a candidate $(X, Y)$ orientation using the discovered `Tetromino_Rotation_Table`[cite: 2]. It calculates the target cells, validates wall bounds, floor limits, and cell occupancy, and only commits the move if all 4 blocks pass verification[cite: 2].
+The address 0x1AC0 in Ghidra also starts state validation checks[cite: 1, 2]. In tetris terms, whenever a player presses left, right, up, or down, it does not change the gamestate on the fly[cite: 1, 2]. It takes the candidate rotation (X, Y)[cite: 1, 2]. It looks up the 4 block offsets from the function we discovered (Tetromino_Rotation_Table) in our source code, calculator target cell, testing for wall bounds, and cell occupancy and only then will it validate the user input[cite: 1, 2]. Only if all 4 blocks pass is when the block is placed[cite: 1, 2].
 
 <p align="center">
-  <img src="docs/screenshots/04_speculative_collision_check.png" width="800" alt="Speculative Collision">
-  <br>
-  <em>Figure 4: Speculative state validation checking boundaries and occupancy before placement.</em>
+  <img src="assets/3_tetromino_struct_0x4296.png" width="750" alt="Tetromino Rotation Table Struct at 0x4296">
 </p>
 
-### 6. Sharp SM83 vs. Modern 64-Bit Silicon
-The architecture of the 8-bit Sharp SM83 differs vastly from modern 64-bit processors like the Apple M1:
-* **Registers:** Modern architectures feature 31 dynamic registers and out-of-order execution, whereas the SM83 relies on the Accumulator (`A`) for math operations and strict register pairing (`HL`, `BC`, `DE`) for pointer arithmetic[cite: 2].
-* **Bus Optimization:** Performance-critical routines utilize dedicated opcodes like `LDH` to access High RAM (`0xFF00+`) instantly, bypassing bottlenecks in bus transactions[cite: 2].
+<p align="center">
+  <img src="assets/04_speculative_collision_check.png" width="750" alt="State Validation at 0x1AC0">
+</p>
 
----
+One last interesting thing about the hardware I discovered was the nature of the Registers[cite: 1, 2]. While my M1 mac is a 64bit machine, with 31 highly dynamic registers and executes instructions out of order, the SHARP sm83 processor has all its math operations all done by its accumulator (A), or its memory pointer arithmetic witch depends on its register pairing (HL, BC, DE)[cite: 1, 2]. Other performance critical operations are conducted by its dedicated postcodes like LDH to save cycles off bus transactions, a critical bottleneck in its processor[cite: 1, 2].
 
-## Project Structure & How to Run
+Through my findings, I recreated the code in C with all this in mind[cite: 1, 2]. 
 
-```text
-tetris-native/
-├── Makefile
-├── docs/
-│   ├── logo.png
-│   └── screenshots/
-└── src/
-    ├── pieces.h
-    ├── tetris.h
-    ├── tetris.c
-    └── main_pc.c
+<p align="center">
+  <img src="assets/07_native_m1_execution.png" width="550" alt="Tetris Native Running on M1 Mac">
+</p>
+
+### How to run:
+
+```bash
+# 1. Install SDL2 via Homebrew
+brew install sdl2
+
+# 2. Compile natively using clang
+make
+
+# 3. Launch the game
+./tetris_native
