@@ -6,13 +6,13 @@
 
 This project details the manual reverse engineering work I completed using the Tetris ROM using ghidra, culminating into a clean C port on Apple silicon mac. Instead of using an emulator or a decomp script, I wanted to study the architecture of the Sharp SM83 processor, looking for hardware quirks, its memory mapping constraints, and other operations like lookup tables and Vram blanking that are occurring under the hood[.
 
-My findings pointed to a certain hex address 0x0100. Upon disassembling the program, I deciphered that this was the entry point of the ROM[cite: 1, 2]. Growing up I always remembered the iconic nintendo logo playing before each game[. This was no accident, as the boot rom writes to address 0xFF50, then jumps over to 0x0100 as soon as the sequence finishes[cite: 1, 2]. It was a strict anti piracy or anti counterfeit measure to protect the Nintendo IP[. 
+My findings pointed to a certain hex address 0x0100. Upon disassembling the program, I deciphered that this was the entry point of the ROM. Growing up I always remembered the iconic nintendo logo playing before each game[. This was no accident, as the boot rom writes to address 0xFF50, then jumps over to 0x0100 as soon as the sequence finishes. It was a strict anti piracy or anti counterfeit measure to protect the Nintendo IP. 
 
 <p align="center">
   <img src="assets/01_rom_entry_0x0100.png" width="750" alt="ROM Entry Point 0x0100">
 </p>
 
-Another thing that I notices is the sequential memory loops[cite: 1, 2]. The hardware seems to be initializing SRAM, VRAM, and ORAM in this order[cite: 1, 2]. From my findings, it starts with the SRAM, then the WORK ram (0xC000), then the VRAM (0x8000), and OAM (0xFE00). This is just purely electrical noise. Usually an operating system filters them out when the hardware is initializing, but the gameboy cartridge is solely responsible for carrying out this filtering.
+Another thing that I notices is the sequential memory loops. The hardware seems to be initializing SRAM, VRAM, and ORAM in this order. From my findings, it starts with the SRAM, then the WORK ram (0xC000), then the VRAM (0x8000), and OAM (0xFE00). This is just purely electrical noise. Usually an operating system filters them out when the hardware is initializing, but the gameboy cartridge is solely responsible for carrying out this filtering.
 
 <p align="center">
   <img src="assets/02_ram_clearing_pipeline.png" width="750" alt="Sequential Memory Loops">
