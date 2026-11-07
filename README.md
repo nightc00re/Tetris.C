@@ -4,7 +4,7 @@
 
 # TETRIS.C
 
-This project details the manual reverse engineering work I completed using the Tetris ROM using ghidra, culminating into a clean C port on Apple silicon mac. Instead of using an emulator or a decomp script, I wanted to study the architecture of the Sharp SM83 processor, looking for hardware quirks, its memory mapping constraints, and other operations like lookup tables and Vram blanking that are occurring under the hood[.
+This project details the manual reverse engineering work I completed using the Tetris ROM using ghidra, culminating into a clean C port on Apple silicon mac. Instead of using an emulator or a decomp script, I wanted to study the architecture of the Sharp SM83 processor, looking for hardware quirks, its memory mapping constraints, and other operations like lookup tables and Vram blanking that are occurring under the hood.
 
 My findings pointed to a certain hex address 0x0100. Upon disassembling the program, I deciphered that this was the entry point of the ROM. Growing up I always remembered the iconic nintendo logo playing before each game[. This was no accident, as the boot rom writes to address 0xFF50, then jumps over to 0x0100 as soon as the sequence finishes. It was a strict anti piracy or anti counterfeit measure to protect the Nintendo IP. 
 
